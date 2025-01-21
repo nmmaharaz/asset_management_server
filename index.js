@@ -33,6 +33,13 @@ async function run() {
 
                     // As an Employee
 
+
+    app.get("/myteam/:email", async(req,res)=>{
+      const email = req.params.email
+      const userData = await usersCollection.findOne({email})
+      console.log("user", userData)
+    })
+
     // hr==> add employee
     app.patch("/user/:email", async (req, res) => {
       const email = req.params.email;
@@ -42,7 +49,7 @@ async function run() {
       const updateUser = req.body;
       // console.log(updateUser?.hr_email);
       const hr = { email: updateUser?.hr_email };
-      const info = await hrUsersCollection.findOne(hr);
+      // const info = await hrUsersCollection.findOne(hr);
       if (info.employee_limit == info.total_employee) {
         return res.send("Limit nei");
       } else {
@@ -126,12 +133,22 @@ async function run() {
     app.patch('/request/:id', async(req, res)=>{
       const id = req.params.id
       const quary = {_id: new ObjectId(id)}
+      const dataFind = await EmployeeAssetCollection.findOne(quary)
+      const assets_id = dataFind?.asset_id
       const updateData = req.body
+      const assets = { _id: new ObjectId(assets_id)};
+      const tumi = await assetCollection.findOne(assets)
       const update = {
         $set:{request_status: updateData.request_status}
       }
       const result = await EmployeeAssetCollection.updateOne(quary, update)
-      console.log("this is a r", result)
+      const updateHrlimit = {
+        $inc: {
+          product_quantity: -1,
+        },
+      };
+      const updateResult = await assetCollection.updateOne(assets, updateHrlimit)
+      // console.log(updateResult, "limit")
       res.send(result)
     })
 
