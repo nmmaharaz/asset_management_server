@@ -21,6 +21,9 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     const usersCollection = client.db("AssetManagement").collection("users");
+    const EmployeeAssetCollection = client
+      .db("AssetManagement")
+      .collection("requestassets");
     const hrUsersCollection = client
       .db("AssetManagement")
       .collection("hrusers");
@@ -28,7 +31,7 @@ async function run() {
       .db("AssetManagement")
       .collection("asset");
 
-    // As an Employee
+                    // As an Employee
 
     // hr==> add employee
     app.patch("/user/:email", async (req, res) => {
@@ -95,8 +98,7 @@ async function run() {
     app.get("/addemployee", async (req, res) => {
       const quary = { role: "User" };
       const result = await usersCollection.find(quary).toArray();
-      // console.log(result);
-      res.send(result);
+      res.send(result); 
     });
 
     // employee join data data
@@ -113,7 +115,35 @@ async function run() {
       });
       res.send(result);
     });
-    // hr  route manage
+
+                          // Employee Assets Request
+    app.get('/myrequest/:email', async(req, res)=>{
+      const email = req.params.email
+      const result = await EmployeeAssetCollection.find({email}).toArray()
+      // console.log("this is a r", result)
+      res.send(result)
+    })
+    app.patch('/request/:id', async(req, res)=>{
+      const id = req.params.id
+      const quary = {_id: new ObjectId(id)}
+      const updateData = req.body
+      const update = {
+        $set:{request_status: updateData.request_status}
+      }
+      const result = await EmployeeAssetCollection.updateOne(quary, update)
+      console.log("this is a r", result)
+      res.send(result)
+    })
+
+    app.post('/asset_request', async(req, res)=>{
+      const assetRequest = req.body
+      const result = await EmployeeAssetCollection.insertOne(assetRequest)
+      // console.log("this is a r", result)
+      res.send(result)
+    })
+
+
+                           // hr  route manage
 
     //  route provide
     app.get("/hrusers/role/:email", async (req, res) => {
@@ -148,7 +178,7 @@ async function run() {
         ...data,
         employee_limit: 5,
         total_employee: 0,
-        role: "",
+        role: "HR_Request",
       });
       res.send(result);
     });
