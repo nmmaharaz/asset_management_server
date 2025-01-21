@@ -27,18 +27,57 @@ async function run() {
     const hrUsersCollection = client
       .db("AssetManagement")
       .collection("hrusers");
-    const assetCollection = client
-      .db("AssetManagement")
-      .collection("asset");
+    const assetCollection = client.db("AssetManagement").collection("asset");
 
-                    // As an Employee
+    // As an Employee
 
+    // app.get("/myteam/:email", async(req,res)=>{
+    //   const email = req.params.email
+    //   const userData = await usersCollection.findOne({email})
+    //   const result = await usersCollection.find({hr_email: userData.hr_email}).toArray()
+    //   console.log("user", result)
+    //   res.send(result)
+    // })
 
-    app.get("/myteam/:email", async(req,res)=>{
-      const email = req.params.email
-      const userData = await usersCollection.findOne({email})
-      console.log("user", userData)
-    })
+    app.get("/myteam/:email", async (req, res) => {
+      const email = req.params.email;
+      const userData = await usersCollection.findOne({ email });
+      const hr_email = userData.hr_email;
+      const result = await usersCollection
+        .aggregate([
+          {
+            $match: { hr_email },
+          },
+          {
+            $addFields: { hr_email },
+          },
+          {
+            $lookup: {
+              from: "hrusers",
+              localField: "hr_email",
+              foreignField: "email",
+              as: "hrusers",
+            },
+          },
+          {
+            $unwind: { path: "$hrusers",  },
+          },
+          {
+            $addFields: {
+              company_name: "$hrusers.company_name",
+              company_logo: "$hrusers.company_logo",
+            },
+          },
+          {
+            $project: {
+              hrusers: 0,
+            },
+          },
+        ])
+        .toArray();
+      console.log("user", result);
+      res.send(result);
+    });
 
     // hr==> add employee
     app.patch("/user/:email", async (req, res) => {
@@ -74,7 +113,7 @@ async function run() {
       const email = req.params.email;
       const quary = { email };
       const updateUser = req.body;
-      const userInfo = await usersCollection.findOne(quary)
+      const userInfo = await usersCollection.findOne(quary);
       // console.log("console log korcho",userInfo?.hr_email)
       const hr = { email: userInfo?.hr_email };
       const info = await hrUsersCollection.findOne(hr);
@@ -95,7 +134,7 @@ async function run() {
     // employee data fetch add employee route
     app.get("/employee/role/:email", async (req, res) => {
       const email = req.params.email;
-      const quary = {email: email} 
+      const quary = { email: email };
       // console.log(email, quary)
       const result = await usersCollection.findOne(quary);
       // console.log(result)
@@ -105,7 +144,7 @@ async function run() {
     app.get("/addemployee", async (req, res) => {
       const quary = { role: "User" };
       const result = await usersCollection.find(quary).toArray();
-      res.send(result); 
+      res.send(result);
     });
 
     // employee join data data
@@ -123,44 +162,56 @@ async function run() {
       res.send(result);
     });
 
-                          // Employee Assets Request
-    app.get('/myrequest/:email', async(req, res)=>{
+    // Employee Assets Request
+
+    app.get("/assetsrequest/:email", async(req, res)=>{
       const email = req.params.email
-      const result = await EmployeeAssetCollection.find({email}).toArray()
-      // console.log("this is a r", result)
+      const quary = {hr_email: email}
+      const result = await EmployeeAssetCollection.find(quary).toArray()
       res.send(result)
     })
-    app.patch('/request/:id', async(req, res)=>{
-      const id = req.params.id
-      const quary = {_id: new ObjectId(id)}
-      const dataFind = await EmployeeAssetCollection.findOne(quary)
-      const assets_id = dataFind?.asset_id
-      const updateData = req.body
-      const assets = { _id: new ObjectId(assets_id)};
-      const tumi = await assetCollection.findOne(assets)
+    app.get("/myrequest/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await EmployeeAssetCollection.find({ email }).toArray();
+      // console.log("this is a r", result)
+      res.send(result);
+    });
+
+    
+
+    app.patch("/request/:id", async (req, res) => {
+      const id = req.params.id;
+      const quary = { _id: new ObjectId(id) };
+      const dataFind = await EmployeeAssetCollection.findOne(quary);
+      const assets_id = dataFind?.asset_id;
+      const updateData = req.body;
+      const assets = { _id: new ObjectId(assets_id) };
+      const tumi = await assetCollection.findOne(assets);
       const update = {
-        $set:{request_status: updateData.request_status}
-      }
-      const result = await EmployeeAssetCollection.updateOne(quary, update)
+        $set: { request_status: updateData.request_status },
+      };
+      const result = await EmployeeAssetCollection.updateOne(quary, update);
       const updateHrlimit = {
         $inc: {
           product_quantity: -1,
         },
       };
-      const updateResult = await assetCollection.updateOne(assets, updateHrlimit)
+      const updateResult = await assetCollection.updateOne(
+        assets,
+        updateHrlimit
+      );
       // console.log(updateResult, "limit")
-      res.send(result)
-    })
+      res.send(result);
+    });
 
-    app.post('/asset_request', async(req, res)=>{
-      const assetRequest = req.body
-      const result = await EmployeeAssetCollection.insertOne(assetRequest)
+    app.post("/asset_request", async (req, res) => {
+      const assetRequest = req.body;
+      const result = await EmployeeAssetCollection.insertOne(assetRequest);
       // console.log("this is a r", result)
-      res.send(result)
-    })
+      res.send(result);
+    });
 
-
-                           // hr  route manage
+    // hr  route manage
 
     //  route provide
     app.get("/hrusers/role/:email", async (req, res) => {
@@ -179,12 +230,12 @@ async function run() {
     });
 
     // Hr join data save
-    app.get('/hremployee/:email', async(req, res)=>{
-      const email=req.params.email
-      const result = await hrUsersCollection.findOne({email})
+    app.get("/hremployee/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await hrUsersCollection.findOne({ email });
       // console.log(result, "tumi hr")
-      res.send(result)
-    })
+      res.send(result);
+    });
     app.post("/hrusers/:email", async (req, res) => {
       const email = req.params.email;
       const quary = { email };
@@ -200,58 +251,56 @@ async function run() {
       res.send(result);
     });
 
-             // Asset Releted 
+    // Asset Releted
 
-  // add asset
+    // add asset
 
+    
 
+    app.get("/allasset/:email", async (req, res) => {
+      const email = req.params.email;
+      const userInfo = await usersCollection.findOne({ email });
+      // console.log(result.hr_email, "all asset hr email")
+      const quary = { hr_email: userInfo.hr_email };
+      const result = await assetCollection.find(quary).toArray();
+      // console.log("Hellow result",result)
+      res.send(result);
+    });
 
+    app.get("/allassets/:email", async (req, res) => {
+      const email = req.params.email;
+      const quary = { hr_email: email };
+      const result = await assetCollection.find(quary).toArray();
+      // console.log("Hellow result",result)
+      res.send(result);
+    });
 
-  app.get('/allasset/:email', async(req, res)=>{
-    const email = req.params.email
-    const userInfo = await usersCollection.findOne({email})
-    // console.log(result.hr_email, "all asset hr email")
-    const quary = {hr_email: userInfo.hr_email}
-    const result = await assetCollection.find(quary).toArray()
-    // console.log("Hellow result",result)
-    res.send(result)
-  })
+    app.patch("/asset/:id", async (req, res) => {
+      const id = req.params.id;
+      const quary = { _id: new ObjectId(id) };
+      const assetData = req.body;
+      const updateData = {
+        $set: assetData,
+      };
+      const result = await assetCollection.updateOne(quary, updateData);
+      // console.log(result, "vai tumi ki update hoccho?")
+      res.send(result);
+    });
 
-  app.get('/allassets/:email', async(req, res)=>{
-    const email = req.params.email
-    const quary = {hr_email: email}
-    const result = await assetCollection.find(quary).toArray()
-    // console.log("Hellow result",result)
-    res.send(result)
-  })
+    app.delete("/allassets/:id", async (req, res) => {
+      const id = req.params.id;
+      const quary = { _id: new ObjectId(id) };
+      const result = await assetCollection.deleteOne(quary);
+      // console.log("Hellow result",result)
+      res.send(result);
+    });
 
-  app.patch('/asset/:id', async(req, res)=>{
-    const id = req.params.id
-    const quary = {_id: new ObjectId(id)}
-    const assetData = req.body
-    const updateData = {
-      $set: assetData,
-    };
-    const result = await assetCollection.updateOne(quary, updateData)
-    // console.log(result, "vai tumi ki update hoccho?")
-    res.send(result)
-  })
-
-  app.delete('/allassets/:id', async(req, res)=>{
-    const id = req.params.id
-    const quary = {_id: new ObjectId(id)}
-    const result = await assetCollection.deleteOne(quary)
-    // console.log("Hellow result",result)
-    res.send(result)
-  })
-
-
-  app.post('/asset', async(req, res)=>{
-    const data = req.body
-    const result = await assetCollection.insertOne(data)
-    // console.log(result)
-    res.send(result)
-  })
+    app.post("/asset", async (req, res) => {
+      const data = req.body;
+      const result = await assetCollection.insertOne(data);
+      // console.log(result)
+      res.send(result);
+    });
 
     await client.connect();
     // Send a ping to confirm a successful connection
