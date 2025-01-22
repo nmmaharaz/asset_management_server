@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const app = express();
+const jwt = require('jsonwebtoken');
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
@@ -28,6 +29,31 @@ async function run() {
       .db("AssetManagement")
       .collection("hrusers");
     const assetCollection = client.db("AssetManagement").collection("asset");
+
+
+app.post('/jwt', async(req, res)=>{
+  const user = req.body
+  const token = jwt.sign(user,process.env.ACCESS_TOKEN_SECRET, {expiresIn:"5d"});
+  // console.log(token)
+  res.send({token})
+})
+
+const verifyToken = (req, res, next)=>{
+  if(!res.headers.authorization){
+    return res.status(401).send({message:"unauthorized access"})
+  }
+  const token = req.headers.authorization.split(' ')[1]
+
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded)=>{
+    if(err){
+      return res.status(401).send({message:"unauthorized access"})
+    }
+    req.decoded = decoded
+    next() 
+  })
+}
+
+
 
     // As an Employee
 
@@ -88,7 +114,7 @@ async function run() {
       const updateUser = req.body;
       // console.log(updateUser?.hr_email);
       const hr = { email: updateUser?.hr_email };
-      // const info = await hrUsersCollection.findOne(hr);
+      const info = await hrUsersCollection.findOne(hr);
       if (info.employee_limit == info.total_employee) {
         return res.send("Limit nei");
       } else {
@@ -170,7 +196,7 @@ async function run() {
       const result = await EmployeeAssetCollection.find(quary).toArray();
       res.send(result);
     });
-    app.get("/myrequest/:email", async (req, res) => {
+    app.get("/myrequest/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const result = await EmployeeAssetCollection.find({ email }).toArray();
       // console.log("this is a r", result)
