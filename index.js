@@ -60,7 +60,7 @@ async function run() {
             },
           },
           {
-            $unwind: { path: "$hrusers",  },
+            $unwind: { path: "$hrusers" },
           },
           {
             $addFields: {
@@ -164,12 +164,12 @@ async function run() {
 
     // Employee Assets Request
 
-    app.get("/assetsrequest/:email", async(req, res)=>{
-      const email = req.params.email
-      const quary = {hr_email: email}
-      const result = await EmployeeAssetCollection.find(quary).toArray()
-      res.send(result)
-    })
+    app.get("/assetsrequest/:email", async (req, res) => {
+      const email = req.params.email;
+      const quary = { hr_email: email };
+      const result = await EmployeeAssetCollection.find(quary).toArray();
+      res.send(result);
+    });
     app.get("/myrequest/:email", async (req, res) => {
       const email = req.params.email;
       const result = await EmployeeAssetCollection.find({ email }).toArray();
@@ -177,7 +177,37 @@ async function run() {
       res.send(result);
     });
 
-    
+    app.patch("/requestInfo/:id", async (req, res) => {
+      const id = req.params.id;
+      const quary = { _id: new ObjectId(id) };
+      const dataFind = await EmployeeAssetCollection.findOne(quary);
+      const updateData = req.body;
+      const assets_id = dataFind?.asset_id;
+      const assets = { _id: new ObjectId(assets_id) };
+      const quantityLimit = await assetCollection.findOne(assets)
+      console.log("data paichi")
+      if(quantityLimit?.product_quantity == 0){
+        console.log("vai quantity shesh")
+        return res.send("error page")
+      }else{
+        const updateInfo = {
+          $set:updateData,
+        };
+        const result = await EmployeeAssetCollection.updateOne(quary, updateInfo)
+        const updateHrlimit = {
+          $inc: {
+            product_quantity: -1,
+          },
+        };
+        const updateResult = await assetCollection.updateOne(
+          assets,
+          updateHrlimit
+        );
+        console.log(result) //eta dekhe niyo 
+        res.send(result)
+      }
+     
+    });
 
     app.patch("/request/:id", async (req, res) => {
       const id = req.params.id;
@@ -193,7 +223,7 @@ async function run() {
       const result = await EmployeeAssetCollection.updateOne(quary, update);
       const updateHrlimit = {
         $inc: {
-          product_quantity: -1,
+          product_quantity: 1,
         },
       };
       const updateResult = await assetCollection.updateOne(
@@ -203,6 +233,7 @@ async function run() {
       // console.log(updateResult, "limit")
       res.send(result);
     });
+
 
     app.post("/asset_request", async (req, res) => {
       const assetRequest = req.body;
@@ -254,8 +285,6 @@ async function run() {
     // Asset Releted
 
     // add asset
-
-    
 
     app.get("/allasset/:email", async (req, res) => {
       const email = req.params.email;
