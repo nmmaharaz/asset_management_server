@@ -199,11 +199,26 @@ async function run() {
             product_quantity: -1,
           },
         };
+        const updateResult = await assetCollection.updateOne(
+          assets,
+          updateHrlimit
+        );
+        console.log(result) //eta dekhe niyo 
         res.send(result)
-       
-        //eta dekhe niyo 
       }
      
+    });
+
+    app.patch("/requestRejectInfo/:id", async (req, res) => {
+      const id = req.params.id;
+      const quary = { _id: new ObjectId(id) };
+      const updateData = req.body;
+      const updateInfo = {
+        $set: updateData,
+      };
+      const result = await EmployeeAssetCollection.updateOne(quary, updateInfo);
+      // console.log(result, "vai tumi ki update hoccho?")
+      res.send(result);
     });
 
     app.patch("/request/:id", async (req, res) => {
