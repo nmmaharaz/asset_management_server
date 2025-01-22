@@ -39,10 +39,11 @@ app.post('/jwt', async(req, res)=>{
 })
 
 const verifyToken = (req, res, next)=>{
-  if(!res.headers.authorization){
+  if(!req.headers.authorization){
     return res.status(401).send({message:"unauthorized access"})
   }
   const token = req.headers.authorization.split(' ')[1]
+  console.log("token", token)
 
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded)=>{
     if(err){
@@ -51,6 +52,29 @@ const verifyToken = (req, res, next)=>{
     req.decoded = decoded
     next() 
   })
+}
+
+
+const verifyLoginEmployeeUser = async (req, res, next)=>{
+  const email = req.decoded.email
+  const user = await usersCollection.findOne({email})
+  const isEmployee = user?.role === "Employee"
+  if(!isEmployee){
+    return res.status(403).send({message: 'forbidden access'})
+  }
+  next()
+}
+
+const verifyLoginHRUser = async (req, res, next)=>{
+  const email = req.decoded.email
+  console.log("Hr email", email)
+  const user = await hrUsersCollection.findOne({email})
+  console.log("user", user)
+  const isHR = user?.role === "HR"
+  if(!isHR){
+    return res.status(403).send({message: 'forbidden access'})
+  }
+  next()
 }
 
 
@@ -190,7 +214,7 @@ const verifyToken = (req, res, next)=>{
 
     // Employee Assets Request
 
-    app.get("/assetsrequest/:email", async (req, res) => {
+    app.get("/assetsrequest/:email",verifyToken, verifyLoginHRUser, async (req, res) => {
       const email = req.params.email;
       const quary = { hr_email: email };
       const result = await EmployeeAssetCollection.find(quary).toArray();
