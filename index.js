@@ -199,12 +199,9 @@ async function run() {
             product_quantity: -1,
           },
         };
-        const updateResult = await assetCollection.updateOne(
-          assets,
-          updateHrlimit
-        );
-        console.log(result) //eta dekhe niyo 
         res.send(result)
+       
+        //eta dekhe niyo 
       }
      
     });
