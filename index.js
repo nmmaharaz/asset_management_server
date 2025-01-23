@@ -1,10 +1,11 @@
 const express = require("express");
 const cors = require("cors");
 const app = express();
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
+const stripe = require('stripe')(process.env.PAYMENT_SECRET_KEY)
 
 app.use(express.json());
 app.use(cors());
@@ -29,55 +30,54 @@ async function run() {
       .db("AssetManagement")
       .collection("hrusers");
     const assetCollection = client.db("AssetManagement").collection("asset");
+    const paymentCollection = client.db("AssetManagement").collection("payment");
 
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "5d",
+      });
+      // console.log(token)
+      res.send({ token });
+    });
 
-app.post('/jwt', async(req, res)=>{
-  const user = req.body
-  const token = jwt.sign(user,process.env.ACCESS_TOKEN_SECRET, {expiresIn:"5d"});
-  // console.log(token)
-  res.send({token})
-})
+    const verifyToken = (req, res, next) => {
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: "unauthorized access" });
+      }
+      const token = req.headers.authorization.split(" ")[1];
+      console.log("token", token);
 
-const verifyToken = (req, res, next)=>{
-  if(!req.headers.authorization){
-    return res.status(401).send({message:"unauthorized access"})
-  }
-  const token = req.headers.authorization.split(' ')[1]
-  console.log("token", token)
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+          return res.status(401).send({ message: "unauthorized access" });
+        }
+        req.decoded = decoded;
+        next();
+      });
+    };
 
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded)=>{
-    if(err){
-      return res.status(401).send({message:"unauthorized access"})
-    }
-    req.decoded = decoded
-    next() 
-  })
-}
+    const verifyLoginEmployeeUser = async (req, res, next) => {
+      const email = req.decoded.email;
+      const user = await usersCollection.findOne({ email });
+      const isEmployee = user?.role === "Employee";
+      if (!isEmployee) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
 
-
-const verifyLoginEmployeeUser = async (req, res, next)=>{
-  const email = req.decoded.email
-  const user = await usersCollection.findOne({email})
-  const isEmployee = user?.role === "Employee"
-  if(!isEmployee){
-    return res.status(403).send({message: 'forbidden access'})
-  }
-  next()
-}
-
-const verifyLoginHRUser = async (req, res, next)=>{
-  const email = req.decoded.email
-  console.log("Hr email", email)
-  const user = await hrUsersCollection.findOne({email})
-  console.log("user", user)
-  const isHR = user?.role === "HR"
-  if(!isHR){
-    return res.status(403).send({message: 'forbidden access'})
-  }
-  next()
-}
-
-
+    const verifyLoginHRUser = async (req, res, next) => {
+      const email = req.decoded.email;
+      console.log("Hr email", email);
+      const user = await hrUsersCollection.findOne({ email });
+      console.log("user", user);
+      const isHR = user?.role === "HR";
+      if (!isHR) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
 
     // As an Employee
 
@@ -214,12 +214,17 @@ const verifyLoginHRUser = async (req, res, next)=>{
 
     // Employee Assets Request
 
-    app.get("/assetsrequest/:email",verifyToken, verifyLoginHRUser, async (req, res) => {
-      const email = req.params.email;
-      const quary = { hr_email: email };
-      const result = await EmployeeAssetCollection.find(quary).toArray();
-      res.send(result);
-    });
+    app.get(
+      "/assetsrequest/:email",
+      verifyToken,
+      verifyLoginHRUser,
+      async (req, res) => {
+        const email = req.params.email;
+        const quary = { hr_email: email };
+        const result = await EmployeeAssetCollection.find(quary).toArray();
+        res.send(result);
+      }
+    );
     app.get("/myrequest/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const result = await EmployeeAssetCollection.find({ email }).toArray();
@@ -234,16 +239,19 @@ const verifyLoginHRUser = async (req, res, next)=>{
       const updateData = req.body;
       const assets_id = dataFind?.asset_id;
       const assets = { _id: new ObjectId(assets_id) };
-      const quantityLimit = await assetCollection.findOne(assets)
-      console.log("data paichi")
-      if(quantityLimit?.product_quantity == 0){
-        console.log("vai quantity shesh")
-        return res.send("error page")
-      }else{
+      const quantityLimit = await assetCollection.findOne(assets);
+      console.log("data paichi");
+      if (quantityLimit?.product_quantity == 0) {
+        console.log("vai quantity shesh");
+        return res.send("error page");
+      } else {
         const updateInfo = {
-          $set:updateData,
+          $set: updateData,
         };
-        const result = await EmployeeAssetCollection.updateOne(quary, updateInfo)
+        const result = await EmployeeAssetCollection.updateOne(
+          quary,
+          updateInfo
+        );
         const updateHrlimit = {
           $inc: {
             product_quantity: -1,
@@ -253,10 +261,9 @@ const verifyLoginHRUser = async (req, res, next)=>{
           assets,
           updateHrlimit
         );
-        console.log(result) //eta dekhe niyo 
-        res.send(result)
+        console.log(result); //eta dekhe niyo
+        res.send(result);
       }
-     
     });
 
     app.patch("/requestRejectInfo/:id", async (req, res) => {
@@ -296,7 +303,6 @@ const verifyLoginHRUser = async (req, res, next)=>{
       res.send(result);
     });
 
-
     app.post("/asset_request", async (req, res) => {
       const assetRequest = req.body;
       const result = await EmployeeAssetCollection.insertOne(assetRequest);
@@ -313,22 +319,32 @@ const verifyLoginHRUser = async (req, res, next)=>{
       res.send({ role: result?.role });
     });
 
-    app.get("/employee/:email", async (req, res) => {
-      const email = req.params.email;
-      const quary = { hr_email: email, role: "Employee" };
-      const result = await usersCollection.find(quary).toArray();
-      // res.send({ role: result?.role });
-      // console.log("this is result", result);
-      res.send(result);
-    });
+    app.get(
+      "/employee/:email",
+      verifyToken,
+      verifyLoginHRUser,
+      async (req, res) => {
+        const email = req.params.email;
+        const quary = { hr_email: email, role: "Employee" };
+        const result = await usersCollection.find(quary).toArray();
+        // res.send({ role: result?.role });
+        // console.log("this is result", result);
+        res.send(result);
+      }
+    );
 
     // Hr join data save
-    app.get("/hremployee/:email", async (req, res) => {
-      const email = req.params.email;
-      const result = await hrUsersCollection.findOne({ email });
-      // console.log(result, "tumi hr")
-      res.send(result);
-    });
+    app.get(
+      "/hremployee/:email",
+      verifyToken,
+      verifyLoginHRUser,
+      async (req, res) => {
+        const email = req.params.email;
+        const result = await hrUsersCollection.findOne({ email });
+        // console.log(result, "tumi hr")
+        res.send(result);
+      }
+    );
     app.post("/hrusers/:email", async (req, res) => {
       const email = req.params.email;
       const quary = { email };
@@ -358,13 +374,18 @@ const verifyLoginHRUser = async (req, res, next)=>{
       res.send(result);
     });
 
-    app.get("/allassets/:email", async (req, res) => {
-      const email = req.params.email;
-      const quary = { hr_email: email };
-      const result = await assetCollection.find(quary).toArray();
-      // console.log("Hellow result",result)
-      res.send(result);
-    });
+    app.get(
+      "/allassets/:email",
+      verifyToken,
+      verifyLoginHRUser,
+      async (req, res) => {
+        const email = req.params.email;
+        const quary = { hr_email: email };
+        const result = await assetCollection.find(quary).toArray();
+        // console.log("Hellow result",result)
+        res.send(result);
+      }
+    );
 
     app.patch("/asset/:id", async (req, res) => {
       const id = req.params.id;
@@ -386,12 +407,34 @@ const verifyLoginHRUser = async (req, res, next)=>{
       res.send(result);
     });
 
-    app.post("/asset", async (req, res) => {
+    app.post("/asset", verifyToken, verifyLoginHRUser, async (req, res) => {
       const data = req.body;
       const result = await assetCollection.insertOne(data);
       // console.log(result)
       res.send(result);
     });
+
+    // payment
+    app.post("/create-payment-intent", verifyToken, async (req, res) => {
+      const { quantity, plantId } = req.body;
+      const {price, email} = req.body
+      const totalPrice = price * 100; 
+      const { client_secret } = await stripe.paymentIntents.create({
+        amount: totalPrice,
+        currency: "usd",
+        automatic_payment_methods: {
+          enabled: true,
+        },
+      });
+      res.send({ clientSecret: client_secret });
+    });
+
+    app.post('/order', async(req, res)=>{
+      const paymentInfo = req.body
+      const result = await paymentCollection.insertOne(paymentInfo)
+      req.send(result)
+    })
+
 
     await client.connect();
     // Send a ping to confirm a successful connection
