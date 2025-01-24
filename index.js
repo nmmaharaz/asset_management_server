@@ -5,7 +5,7 @@ const jwt = require("jsonwebtoken");
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
-const stripe = require('stripe')(process.env.PAYMENT_SECRET_KEY)
+const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 
 app.use(express.json());
 app.use(cors());
@@ -30,7 +30,9 @@ async function run() {
       .db("AssetManagement")
       .collection("hrusers");
     const assetCollection = client.db("AssetManagement").collection("asset");
-    const paymentCollection = client.db("AssetManagement").collection("payment");
+    const paymentCollection = client
+      .db("AssetManagement")
+      .collection("payment");
 
     app.post("/jwt", async (req, res) => {
       const user = req.body;
@@ -414,11 +416,22 @@ async function run() {
       res.send(result);
     });
 
+    //buy
+    app.get("/totalPayment/:email", async(req, res)=>{
+      const email = req.params.email
+      const result = await hrUsersCollection.findOne({email})
+      console.log(result, "this is tk")
+      res.send(result)
+    })
+
     // payment
     app.post("/create-payment-intent", verifyToken, async (req, res) => {
       const { quantity, plantId } = req.body;
-      const {price, email} = req.body
-      const totalPrice = price * 100; 
+      const { email } = req.body;
+      const findData = await hrUsersCollection.findOne({ email });
+      console.log(findData.package, "findinfo")
+
+      const totalPrice = findData.package * 100;
       const { client_secret } = await stripe.paymentIntents.create({
         amount: totalPrice,
         currency: "usd",
@@ -426,15 +439,14 @@ async function run() {
           enabled: true,
         },
       });
-      res.send({ clientSecret: client_secret });
+      res.send({ clientSecret: client_secret, total: totalPrice });
     });
 
-    app.post('/order', async(req, res)=>{
-      const paymentInfo = req.body
-      const result = await paymentCollection.insertOne(paymentInfo)
-      req.send(result)
-    })
-
+    app.post("/order", async (req, res) => {
+      const paymentInfo = req.body;
+      const result = await paymentCollection.insertOne(paymentInfo);
+      req.send(result);
+    });
 
     await client.connect();
     // Send a ping to confirm a successful connection
