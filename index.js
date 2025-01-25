@@ -80,6 +80,16 @@ async function run() {
       }
       next();
     };
+    const verifyLoginHRRequestUser = async (req, res, next) => {
+      const email = req.decoded.email;
+      const user = await hrUsersCollection.findOne({ email });
+      console.log("user", user);
+      const isHR = user?.role === "HR_Request";
+      if (!isHR) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
 
     // As an Employee
 
@@ -401,6 +411,20 @@ async function run() {
       res.send(result);
     });
 
+    // update hr package
+
+    app.patch("/hrUpdatePackage/:email", async (req, res) => {
+      const email = req.params.email
+      const quary = { email: email };
+      const updatePackage = req.body;
+      const updateData = {
+        $set: updatePackage,
+      };
+      const result = await hrUsersCollection.updateOne(quary, updateData);
+      console.log(result, "hr package")
+      res.send(result);
+    });
+
     app.delete("/allassets/:id", async (req, res) => {
       const id = req.params.id;
       const quary = { _id: new ObjectId(id) };
@@ -425,13 +449,15 @@ async function run() {
     })
 
     // payment
-    app.post("/create-payment-intent", verifyToken, async (req, res) => {
+    app.post("/create-payment-intent", async (req, res) => {
       const { quantity, plantId } = req.body;
       const { email } = req.body;
       const findData = await hrUsersCollection.findOne({ email });
-      // console.log(findData.package, "findinfo")
-
-      const totalPrice = findData.package * 100;
+      console.log(findData, "findDAta")
+      const package = findData?.package
+      console.log(package, "findinfo")
+      
+      const totalPrice = package * 100;
       const { client_secret } = await stripe.paymentIntents.create({
         amount: totalPrice,
         currency: "usd",
@@ -460,7 +486,7 @@ async function run() {
         },
       }
       const updateHR = await hrUsersCollection.updateOne(query, updateData)
-      console.log(updateHR, "Hr role")
+      console.log(result, "Hr role")
       res.send(result);
     });
 
