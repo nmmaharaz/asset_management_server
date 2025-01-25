@@ -392,7 +392,12 @@ async function run() {
       verifyLoginHRUser,
       async (req, res) => {
         const email = req.params.email;
-        const quary = { hr_email: email };
+        const search = req.query.search
+        const quary = { hr_email: email,
+          $or:[
+            {product_name:{$regex: search, $options: "i"}}
+          ]
+         };
         const result = await assetCollection.find(quary).toArray();
         // console.log("Hellow result",result)
         res.send(result);
