@@ -429,7 +429,7 @@ async function run() {
       const { quantity, plantId } = req.body;
       const { email } = req.body;
       const findData = await hrUsersCollection.findOne({ email });
-      console.log(findData.package, "findinfo")
+      // console.log(findData.package, "findinfo")
 
       const totalPrice = findData.package * 100;
       const { client_secret } = await stripe.paymentIntents.create({
@@ -443,9 +443,25 @@ async function run() {
     });
 
     app.post("/order", async (req, res) => {
-      const paymentInfo = req.body;
-      const result = await paymentCollection.insertOne(paymentInfo);
-      req.send(result);
+      const {transactionId, name, email, limit} = req.body;
+      const paymentData = {
+        transactionId,
+        name, 
+        email,
+      }
+      const result = await paymentCollection.insertOne(paymentData);
+      const query = {email}
+      const updateData = {
+        $set:{
+          role: "HR"
+        },
+        $inc: {
+          employee_limit: limit,
+        },
+      }
+      const updateHR = await hrUsersCollection.updateOne(query, updateData)
+      console.log(updateHR, "Hr role")
+      res.send(result);
     });
 
     await client.connect();
