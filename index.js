@@ -232,15 +232,38 @@ async function run() {
       verifyLoginHRUser,
       async (req, res) => {
         const email = req.params.email;
-        const quary = { hr_email: email };
+        const search = req.query.search;
+        const quary = {
+          hr_email: email,
+          $or: [
+            { name: { $regex: search, $options: "i" } },
+            { email: { $regex: search, $options: "i" } },
+          ],
+        };
         const result = await EmployeeAssetCollection.find(quary).toArray();
         res.send(result);
       }
     );
     app.get("/myrequest/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
-      const result = await EmployeeAssetCollection.find({ email }).toArray();
-      // console.log("this is a r", result)
+      const search = req.query.search;
+      const type = req.query.type;
+      const status = req.query.status;
+      console.log(status, type, search, "serach")
+      const quary = {
+        email: email,
+        ...(search && {
+          $or: [{ product_name: { $regex: search, $options: "i" } }],
+        }),
+        ...(type && {
+          product_type: type,
+        }),
+        ...(status && {
+          request_status: status,
+        }),
+      };
+
+      const result = await EmployeeAssetCollection.find(quary).toArray();
       res.send(result);
     });
 
@@ -290,7 +313,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/request/:id", async (req, res) => {
+    app.patch("/request/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const quary = { _id: new ObjectId(id) };
       const dataFind = await EmployeeAssetCollection.findOne(quary);
@@ -312,6 +335,14 @@ async function run() {
         updateHrlimit
       );
       // console.log(updateResult, "limit")
+      res.send(result);
+    });
+
+    app.delete("/request/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await EmployeeAssetCollection.deleteOne(query);
+      console.log("delete", result);
       res.send(result);
     });
 
@@ -392,40 +423,41 @@ async function run() {
       verifyLoginHRUser,
       async (req, res) => {
         const email = req.params.email;
-        const search = req.query.search
-        const type = req.query.type
-        const quantity = req.query.quantity
-        const sort = req.query.sort
-        console.log(sort, "data")
-        
+        const search = req.query.search;
+        const type = req.query.type;
+        const quantity = req.query.quantity;
+        const sort = req.query.sort;
+        console.log(sort, "data");
+
         // console.log(quentity, "quentity")
-        const quary = { hr_email: email,
-          ...(search &&{
-            $or:[
-              {product_name:{$regex: search, $options: "i"}}
-            ]
+        const quary = {
+          hr_email: email,
+          ...(search && {
+            $or: [{ product_name: { $regex: search, $options: "i" } }],
           }),
           ...(type && {
-            product_type: type
+            product_type: type,
           }),
-         };
-         if(quantity){
-          if(quantity === "0"){
-            quary.product_quantity = 0
+        };
+        if (quantity) {
+          if (quantity === "0") {
+            quary.product_quantity = 0;
+          } else if (quantity === "1") {
+            quary.product_quantity = { $gte: 1 };
           }
-          else if(quantity === "1"){
-            quary.product_quantity = {$gte: 1}
-          }
-         }
+        }
 
-        let sortQuery = {}
-         if(sort == "true"){
-          sortQuery.product_quantity = 1
-         }else if(sort == "false"){
-          sortQuery.product_quantity = -1
-         }
+        let sortQuery = {};
+        if (sort == "true") {
+          sortQuery.product_quantity = 1;
+        } else if (sort == "false") {
+          sortQuery.product_quantity = -1;
+        }
 
-        const result = await assetCollection.find(quary).sort(sortQuery).toArray();
+        const result = await assetCollection
+          .find(quary)
+          .sort(sortQuery)
+          .toArray();
         // console.log("Hellow result",result)
         res.send(result);
       }
@@ -446,14 +478,14 @@ async function run() {
     // update hr package
 
     app.patch("/hrUpdatePackage/:email", async (req, res) => {
-      const email = req.params.email
+      const email = req.params.email;
       const quary = { email: email };
       const updatePackage = req.body;
       const updateData = {
         $set: updatePackage,
       };
       const result = await hrUsersCollection.updateOne(quary, updateData);
-      console.log(result, "hr package")
+      console.log(result, "hr package");
       res.send(result);
     });
 
@@ -473,22 +505,22 @@ async function run() {
     });
 
     //buy
-    app.get("/totalPayment/:email", async(req, res)=>{
-      const email = req.params.email
-      const result = await hrUsersCollection.findOne({email})
-      console.log(result, "this is tk")
-      res.send(result)
-    })
+    app.get("/totalPayment/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await hrUsersCollection.findOne({ email });
+      console.log(result, "this is tk");
+      res.send(result);
+    });
 
     // payment
     app.post("/create-payment-intent", async (req, res) => {
       const { quantity, plantId } = req.body;
       const { email } = req.body;
       const findData = await hrUsersCollection.findOne({ email });
-      console.log(findData, "findDAta")
-      const package = findData?.package
-      console.log(package, "findinfo")
-      
+      console.log(findData, "findDAta");
+      const package = findData?.package;
+      console.log(package, "findinfo");
+
       const totalPrice = package * 100;
       const { client_secret } = await stripe.paymentIntents.create({
         amount: totalPrice,
@@ -501,24 +533,24 @@ async function run() {
     });
 
     app.post("/order", async (req, res) => {
-      const {transactionId, name, email, limit} = req.body;
+      const { transactionId, name, email, limit } = req.body;
       const paymentData = {
         transactionId,
-        name, 
+        name,
         email,
-      }
+      };
       const result = await paymentCollection.insertOne(paymentData);
-      const query = {email}
+      const query = { email };
       const updateData = {
-        $set:{
-          role: "HR"
+        $set: {
+          role: "HR",
         },
         $inc: {
           employee_limit: limit,
         },
-      }
-      const updateHR = await hrUsersCollection.updateOne(query, updateData)
-      console.log(result, "Hr role")
+      };
+      const updateHR = await hrUsersCollection.updateOne(query, updateData);
+      console.log(result, "Hr role");
       res.send(result);
     });
 
