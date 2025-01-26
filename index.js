@@ -393,12 +393,39 @@ async function run() {
       async (req, res) => {
         const email = req.params.email;
         const search = req.query.search
+        const type = req.query.type
+        const quantity = req.query.quantity
+        const sort = req.query.sort
+        console.log(sort, "data")
+        
+        // console.log(quentity, "quentity")
         const quary = { hr_email: email,
-          $or:[
-            {product_name:{$regex: search, $options: "i"}}
-          ]
+          ...(search &&{
+            $or:[
+              {product_name:{$regex: search, $options: "i"}}
+            ]
+          }),
+          ...(type && {
+            product_type: type
+          }),
          };
-        const result = await assetCollection.find(quary).toArray();
+         if(quantity){
+          if(quantity === "0"){
+            quary.product_quantity = 0
+          }
+          else if(quantity === "1"){
+            quary.product_quantity = {$gte: 1}
+          }
+         }
+
+        let sortQuery = {}
+         if(sort == "true"){
+          sortQuery.product_quantity = 1
+         }else if(sort == "false"){
+          sortQuery.product_quantity = -1
+         }
+
+        const result = await assetCollection.find(quary).sort(sortQuery).toArray();
         // console.log("Hellow result",result)
         res.send(result);
       }
