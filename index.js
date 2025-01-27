@@ -48,7 +48,7 @@ async function run() {
         return res.status(401).send({ message: "unauthorized access" });
       }
       const token = req.headers.authorization.split(" ")[1];
-      console.log("token", token);
+      // console.log("token", token);
 
       jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
         if (err) {
@@ -59,21 +59,21 @@ async function run() {
       });
     };
 
-    const verifyLoginEmployeeUser = async (req, res, next) => {
-      const email = req.decoded.email;
-      const user = await usersCollection.findOne({ email });
-      const isEmployee = user?.role === "Employee";
-      if (!isEmployee) {
-        return res.status(403).send({ message: "forbidden access" });
-      }
-      next();
-    };
+    // const verifyLoginEmployeeUser = async (req, res, next) => {
+    //   const email = req.decoded.email;
+    //   const user = await usersCollection.findOne({ email });
+    //   const isEmployee = user?.role === "Employee";
+    //   if (!isEmployee) {
+    //     return res.status(403).send({ message: "forbidden access" });
+    //   }
+    //   next();
+    // };
 
     const verifyLoginHRUser = async (req, res, next) => {
       const email = req.decoded.email;
-      console.log("Hr email", email);
+      // console.log("Hr email", email);
       const user = await hrUsersCollection.findOne({ email });
-      console.log("user", user);
+      // console.log("user", user);
       const isHR = user?.role === "HR";
       if (!isHR) {
         return res.status(403).send({ message: "forbidden access" });
@@ -83,7 +83,7 @@ async function run() {
     const verifyLoginHRRequestUser = async (req, res, next) => {
       const email = req.decoded.email;
       const user = await hrUsersCollection.findOne({ email });
-      console.log("user", user);
+      // console.log("user", user);
       const isHR = user?.role === "HR_Request";
       if (!isHR) {
         return res.status(403).send({ message: "forbidden access" });
@@ -100,6 +100,15 @@ async function run() {
     //   console.log("user", result)
     //   res.send(result)
     // })
+
+    app.get("/employeeCompany/:email", async(req, res)=>{
+      const email = req.params.email
+      const userData = await usersCollection.findOne({email})
+      const quary = {hr_email: userData?.hr_email}
+      const result = await hrUsersCollection.findOne(quary)
+      // console.log(result, "ami result")
+      res.send(result)
+    })
 
     app.get("/myteam/:email", async (req, res) => {
       const email = req.params.email;
@@ -137,7 +146,7 @@ async function run() {
           },
         ])
         .toArray();
-      console.log("user", result);
+      // console.log("user", result);
       res.send(result);
     });
 
@@ -249,7 +258,7 @@ async function run() {
       const search = req.query.search;
       const type = req.query.type;
       const status = req.query.status;
-      console.log(status, type, search, "serach")
+      // console.log(status, type, search, "serach")
       const quary = {
         email: email,
         ...(search && {
@@ -275,9 +284,9 @@ async function run() {
       const assets_id = dataFind?.asset_id;
       const assets = { _id: new ObjectId(assets_id) };
       const quantityLimit = await assetCollection.findOne(assets);
-      console.log("data paichi");
+      // console.log("data paichi");
       if (quantityLimit?.product_quantity == 0) {
-        console.log("vai quantity shesh");
+        // console.log("vai quantity shesh");
         return res.send("error page");
       } else {
         const updateInfo = {
@@ -296,7 +305,7 @@ async function run() {
           assets,
           updateHrlimit
         );
-        console.log(result); //eta dekhe niyo
+        // console.log(result);
         res.send(result);
       }
     });
@@ -342,7 +351,7 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await EmployeeAssetCollection.deleteOne(query);
-      console.log("delete", result);
+      // console.log("delete", result);
       res.send(result);
     });
 
@@ -365,7 +374,6 @@ async function run() {
     app.get(
       "/employee/:email",
       verifyToken,
-      verifyLoginHRUser,
       async (req, res) => {
         const email = req.params.email;
         const quary = { hr_email: email, role: "Employee" };
@@ -410,9 +418,32 @@ async function run() {
     app.get("/allasset/:email", async (req, res) => {
       const email = req.params.email;
       const userInfo = await usersCollection.findOne({ email });
-      // console.log(result.hr_email, "all asset hr email")
-      const quary = { hr_email: userInfo.hr_email };
-      const result = await assetCollection.find(quary).toArray();
+
+        const search = req.query.search;
+        const type = req.query.type;
+        const availability = req.query.availability;
+
+        const quary = {
+          hr_email: userInfo.hr_email,
+          ...(search && {
+            $or: [{ product_name: { $regex: search, $options: "i" } }],
+          }),
+          ...(type && {
+            product_type: type,
+          }),
+        };
+        if (availability) {
+          if (availability === "0") {
+            quary.product_quantity = 0;
+          } else if (availability === "1") {
+            quary.product_quantity = { $gte: 1 };
+          }
+        }
+
+        const result = await assetCollection
+          .find(quary).toArray();
+
+
       // console.log("Hellow result",result)
       res.send(result);
     });
@@ -427,7 +458,7 @@ async function run() {
         const type = req.query.type;
         const quantity = req.query.quantity;
         const sort = req.query.sort;
-        console.log(sort, "data");
+        // console.log(sort, "data");
 
         // console.log(quentity, "quentity")
         const quary = {
@@ -475,9 +506,8 @@ async function run() {
       res.send(result);
     });
 
-    // update hr package
 
-    app.patch("/hrUpdatePackage/:email", async (req, res) => {
+    app.patch("/hrUpdatePackage/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const quary = { email: email };
       const updatePackage = req.body;
@@ -485,7 +515,7 @@ async function run() {
         $set: updatePackage,
       };
       const result = await hrUsersCollection.updateOne(quary, updateData);
-      console.log(result, "hr package");
+      // console.log(result, "hr package");
       res.send(result);
     });
 
@@ -505,21 +535,139 @@ async function run() {
     });
 
     //buy
-    app.get("/totalPayment/:email", async (req, res) => {
+    app.get("/totalPayment/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const result = await hrUsersCollection.findOne({ email });
-      console.log(result, "this is tk");
+      // console.log(result, "this is tk");
+      res.send(result);
+    });
+    app.get("/hrCompany/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await hrUsersCollection.findOne({ email });
+      // console.log(result, "this is tk");
       res.send(result);
     });
 
+    app.get("/totalRequest/:email", verifyToken, verifyLoginHRUser, async(req, res)=>{
+      const email = req.params.email
+      const quary = {hr_email: email}
+      const result = await EmployeeAssetCollection.find(quary).toArray()
+      res.send(result)
+    })
+    app.get("/totalapproved/:email", verifyToken, verifyLoginHRUser, async(req, res)=>{
+      try {
+        const email = req.params.email;
+        const query = {
+            hr_email: email,
+            request_status: "Approved",
+        };
+        const result = await EmployeeAssetCollection.find(query).toArray();
+        res.status(200).send(result);
+    } catch (error) {
+        console.error("Error fetching approved requests:", error);
+        res.status(500).send({ error: "Internal Server Error" });
+    }
+    })
+
+    app.get("/totalrejected/:email", verifyToken, verifyLoginHRUser, async(req, res)=>{
+      try {
+        const email = req.params.email;
+        const query = {
+            hr_email: email,
+            request_status: "Rejected",
+        };
+        const result = await EmployeeAssetCollection.find(query).toArray();
+        // console.log(result, "ami ki tumai")
+        res.status(200).send(result);
+    } catch (error) {
+        console.error("Error fetching approved requests:", error);
+        res.status(500).send({ error: "Internal Server Error" });
+    }
+    })
+    app.get("/totalreturned/:email", verifyToken, verifyLoginHRUser, async(req, res)=>{
+      try {
+        const email = req.params.email;
+        const query = {
+            hr_email: email,
+            request_status: "Returned",
+        };
+        const result = await EmployeeAssetCollection.find(query).toArray();
+        // console.log(result, "ami ki tumai")
+        res.status(200).send(result);
+    } catch (error) {
+        // console.error("Error fetching approved requests:", error);
+        res.status(500).send({ error: "Internal Server Error" });
+    }
+    })
+
+
+app.get("/toprequest/:hr_email", verifyToken, verifyLoginHRUser, async(req, res)=>{
+  const hr_email = req.params.hr_email
+  const result = await EmployeeAssetCollection.aggregate([
+    {
+      $group:{
+        _id:{
+          hr_email: {hr_email},
+          product_name: "$product_name"
+        },
+        totalQuantity: {$sum: "$product_quantity"}
+      }
+    },
+    {
+      $group:{
+        _id: "$_id.hr_email",
+        products:{
+          $push:{
+            product_name: "$_id.product_name",
+            totalQuantity: "$totalQuantity",
+            hr_email: hr_email
+          }
+        }
+      }
+    },
+
+    {$project: {
+      _id: 0,
+      products:1,
+      totalQuantity: 1
+    }}
+  ]).toArray()
+
+  console.log(result, "this is result")
+  res.send(result)
+})
+
+app.get("/limitedstock/:email", verifyToken, verifyLoginHRUser, async(req,res)=>{
+  const email = req.params.email
+  const quary = {hr_email: email,
+    product_quantity: { $lt: 10 }
+  }
+  const sort = false
+  let sortQuery = {};
+  if (sort == false) {
+    sortQuery.product_quantity = 1;
+  }
+  const result = await assetCollection.find(quary).sort(sortQuery).toArray()
+  res.send(result)
+})
+
+app.get("/return/:email", verifyToken, verifyLoginHRUser, async(req,res)=>{
+  const email = req.params.email
+  console.log(email, "email dekhtechi")
+  const quary = {hr_email: email,
+    product_type: "Returnable",
+  }
+  const result = await assetCollection.find(quary).toArray()
+  res.send(result)
+})
     // payment
     app.post("/create-payment-intent", async (req, res) => {
       const { quantity, plantId } = req.body;
       const { email } = req.body;
       const findData = await hrUsersCollection.findOne({ email });
-      console.log(findData, "findDAta");
+      // console.log(findData, "findDAta");
       const package = findData?.package;
-      console.log(package, "findinfo");
+      // console.log(package, "findinfo");
 
       const totalPrice = package * 100;
       const { client_secret } = await stripe.paymentIntents.create({
@@ -550,7 +698,7 @@ async function run() {
         },
       };
       const updateHR = await hrUsersCollection.updateOne(query, updateData);
-      console.log(result, "Hr role");
+      // console.log(result, "Hr role");
       res.send(result);
     });
 
