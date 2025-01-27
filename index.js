@@ -253,6 +253,40 @@ async function run() {
         res.send(result);
       }
     );
+
+  
+
+    // Employee Home 
+    app.get("/lastmonthrequest/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+    const query = {
+      email,
+      request_date: { $gte: oneMonthAgo.toISOString() }
+    };
+    const result = await EmployeeAssetCollection.find(query).toArray()
+    console.log(result)
+    res.send(result)
+  });
+  
+    app.get("/toppending/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+    const query = {
+      email,
+      request_status: "Pending",
+      request_date: { $gte: oneMonthAgo.toISOString() }
+    };
+    const result = await EmployeeAssetCollection.find(query).toArray()
+    console.log(result)
+    res.send(result)
+  });
+  
+    
     app.get("/myrequest/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const search = req.query.search;
@@ -396,6 +430,8 @@ async function run() {
         res.send(result);
       }
     );
+       
+    
     app.post("/hrusers/:email", async (req, res) => {
       const email = req.params.email;
       const quary = { email };
@@ -660,6 +696,56 @@ app.get("/return/:email", verifyToken, verifyLoginHRUser, async(req,res)=>{
   const result = await assetCollection.find(quary).toArray()
   res.send(result)
 })
+app.get("/nonreturn/:email", verifyToken, verifyLoginHRUser, async(req,res)=>{
+  const email = req.params.email
+  const quary = {hr_email: email,
+    product_type: "Non-returnable",
+  }
+  const result = await assetCollection.find(quary).toArray()
+  res.send(result)
+})
+app.get("/approveddata/:email", verifyToken, verifyLoginHRUser, async(req,res)=>{
+  const email = req.params.email
+  const quary = {hr_email: email,
+    request_status: "Approved",
+  }
+  const result = await EmployeeAssetCollection.find(quary).toArray()
+  res.send(result)
+})
+app.get("/pendingdata/:email", verifyToken, verifyLoginHRUser, async(req,res)=>{
+  const email = req.params.email
+  const quary = {hr_email: email,
+    request_status: "Pending",
+  }
+  const result = await EmployeeAssetCollection.find(quary).toArray()
+  res.send(result)
+})
+app.get("/rejecteddata/:email", verifyToken, verifyLoginHRUser, async(req,res)=>{
+  const email = req.params.email
+  const quary = {hr_email: email,
+    request_status: "Rejected",
+  }
+  const result = await EmployeeAssetCollection.find(quary).toArray()
+  res.send(result)
+})
+app.get("/returndata/:email", verifyToken, verifyLoginHRUser, async(req,res)=>{
+  const email = req.params.email
+  const quary = {hr_email: email,
+    request_status: "Returned",
+  }
+  const result = await EmployeeAssetCollection.find(quary).toArray()
+  res.send(result)
+})
+
+app.get(
+  "/hremployeelist/:email",
+  async (req, res) => {
+    const email = req.params.email;
+    const quary ={hr_email: email}
+    const result = await usersCollection.find(quary).toArray();
+    res.send(result);
+  }
+);
     // payment
     app.post("/create-payment-intent", async (req, res) => {
       const { quantity, plantId } = req.body;
