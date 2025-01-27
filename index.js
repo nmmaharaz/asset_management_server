@@ -151,7 +151,7 @@ async function run() {
     });
 
     // hr==> add employee
-    app.patch("/user/:email", async (req, res) => {
+    app.patch("/user/:email",verifyToken, verifyLoginHRUser, async (req, res) => {
       const email = req.params.email;
       const quary = { email };
       const userData = await usersCollection.findOne(quary);
@@ -285,8 +285,57 @@ async function run() {
     console.log(result)
     res.send(result)
   });
+    app.get("/hrtoppending/:email", verifyToken, verifyLoginHRUser, async (req, res) => {
+      const email = req.params.email;
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+    const query = {
+      hr_email: email,
+      request_status: "Pending",
+      request_date: { $gte: oneMonthAgo.toISOString() }
+    };
+    const result = await EmployeeAssetCollection.find(query).toArray()
+    console.log(result)
+    res.send(result)
+  });
   
-    
+  
+  app.get("/employeeapproveddata/:email", verifyToken, async(req,res)=>{
+    const email = req.params.email
+    const quary = {email: email,
+      request_status: "Approved",
+    }
+    const result = await EmployeeAssetCollection.find(quary).toArray()
+    res.send(result)
+  })
+  app.get("/employeependingdata/:email", verifyToken, async(req,res)=>{
+    const email = req.params.email
+    const quary = {email: email,
+      request_status: "Pending",
+    }
+    const result = await EmployeeAssetCollection.find(quary).toArray()
+    res.send(result)
+  })
+  app.get("/employeerejecteddata/:email", verifyToken, async(req,res)=>{
+    const email = req.params.email
+    const quary = {email: email,
+      request_status: "Rejected",
+    }
+    const result = await EmployeeAssetCollection.find(quary).toArray()
+    res.send(result)
+  })
+  app.get("/employeereturndata/:email", verifyToken, async(req,res)=>{
+    const email = req.params.email
+    const quary = {email: email,
+      request_status: "Returned",
+    }
+    const result = await EmployeeAssetCollection.find(quary).toArray()
+    res.send(result)
+  })
+
+
+
     app.get("/myrequest/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const search = req.query.search;
@@ -310,7 +359,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/requestInfo/:id", async (req, res) => {
+    app.patch("/requestInfo/:id",verifyToken, verifyLoginHRUser, async (req, res) => {
       const id = req.params.id;
       const quary = { _id: new ObjectId(id) };
       const dataFind = await EmployeeAssetCollection.findOne(quary);
@@ -344,7 +393,7 @@ async function run() {
       }
     });
 
-    app.patch("/requestRejectInfo/:id", async (req, res) => {
+    app.patch("/requestRejectInfo/:id",verifyToken, verifyLoginHRUser, async (req, res) => {
       const id = req.params.id;
       const quary = { _id: new ObjectId(id) };
       const updateData = req.body;
@@ -555,7 +604,7 @@ async function run() {
       res.send(result);
     });
 
-    app.delete("/allassets/:id", async (req, res) => {
+    app.delete("/allassets/:id", verifyToken, verifyLoginHRUser, async (req, res) => {
       const id = req.params.id;
       const quary = { _id: new ObjectId(id) };
       const result = await assetCollection.deleteOne(quary);
@@ -641,33 +690,44 @@ app.get("/toprequest/:hr_email", verifyToken, verifyLoginHRUser, async(req, res)
   const hr_email = req.params.hr_email
   const result = await EmployeeAssetCollection.aggregate([
     {
-      $group:{
-        _id:{
-          hr_email: {hr_email},
+      $group: {
+        _id: {
+          hr_email: hr_email,
           product_name: "$product_name"
         },
-        totalQuantity: {$sum: "$product_quantity"}
+        totalQuantity: { $sum: "$product_quantity" }
       }
     },
     {
-      $group:{
+      $group: {
         _id: "$_id.hr_email",
-        products:{
-          $push:{
+        products: {
+          $push: {
             product_name: "$_id.product_name",
-            totalQuantity: "$totalQuantity",
-            hr_email: hr_email
+            totalQuantity: "$totalQuantity"
           }
         }
       }
     },
-
-    {$project: {
-      _id: 0,
-      products:1,
-      totalQuantity: 1
-    }}
-  ]).toArray()
+    {
+      $unwind: "$products" 
+    },
+    {
+      $sort: { "products.totalQuantity": -1 }
+    },
+    {
+      $group: {
+        _id: "$_id",
+        products: { $push: "$products" }
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        products: 1
+      }
+    }
+  ]).toArray();
 
   console.log(result, "this is result")
   res.send(result)
