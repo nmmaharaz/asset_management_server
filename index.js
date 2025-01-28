@@ -284,8 +284,10 @@ async function run() {
     const { ids, hr_email, role } = req.body;
     const objectIds = ids.map((id) => new ObjectId(id));
     const hr = { email: hr_email };
-    console.log(hr_email, "emial")
-  
+    const info = await hrUsersCollection.findOne(hr);
+    if ((info.employee_limit - info.total_employee) <= ids.length) {
+        return res.status(400).json({ message: "No employees were updated." });
+    }
     try {
       const result = await usersCollection.updateMany(
         { _id: { $in: objectIds } },  
