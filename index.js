@@ -285,7 +285,7 @@ async function run() {
     const objectIds = ids.map((id) => new ObjectId(id));
     const hr = { email: hr_email };
     const info = await hrUsersCollection.findOne(hr);
-    if ((info.employee_limit - info.total_employee) <= ids.length) {
+    if ((info.employee_limit - info.total_employee) < ids.length) {
         return res.status(400).json({ message: "No employees were updated." });
     }
     try {
@@ -311,6 +311,8 @@ async function run() {
       res.status(500).json({ message: "Error updating employees", error });
     }
   });
+
+
 
   app.get("/employeeapproveddata/:email", verifyToken, async(req,res)=>{
     const email = req.params.email
@@ -497,11 +499,10 @@ async function run() {
       res.send(result);
     });
 
-    // Asset Releted
 
     // add asset
 
-    app.get("/allasset/:email", async (req, res) => {
+    app.get("/allasset/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const userInfo = await usersCollection.findOne({ email });
 
@@ -510,7 +511,7 @@ async function run() {
         const availability = req.query.availability;
 
         const quary = {
-          hr_email: userInfo.hr_email,
+          hr_email: userInfo?.hr_email,
           ...(search && {
             $or: [{ product_name: { $regex: search, $options: "i" } }],
           }),
@@ -537,7 +538,6 @@ async function run() {
     app.get(
       "/allassets/:email",
       verifyToken,
-      verifyLoginHRUser,
       async (req, res) => {
         const email = req.params.email;
         const search = req.query.search;
