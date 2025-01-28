@@ -39,7 +39,6 @@ async function run() {
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "5d",
       });
-      // console.log(token)
       res.send({ token });
     });
 
@@ -48,7 +47,6 @@ async function run() {
         return res.status(401).send({ message: "unauthorized access" });
       }
       const token = req.headers.authorization.split(" ")[1];
-      // console.log("token", token);
 
       jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
         if (err) {
@@ -59,21 +57,10 @@ async function run() {
       });
     };
 
-    // const verifyLoginEmployeeUser = async (req, res, next) => {
-    //   const email = req.decoded.email;
-    //   const user = await usersCollection.findOne({ email });
-    //   const isEmployee = user?.role === "Employee";
-    //   if (!isEmployee) {
-    //     return res.status(403).send({ message: "forbidden access" });
-    //   }
-    //   next();
-    // };
 
     const verifyLoginHRUser = async (req, res, next) => {
       const email = req.decoded.email;
-      // console.log("Hr email", email);
       const user = await hrUsersCollection.findOne({ email });
-      // console.log("user", user);
       const isHR = user?.role === "HR";
       if (!isHR) {
         return res.status(403).send({ message: "forbidden access" });
@@ -106,7 +93,6 @@ async function run() {
       const userData = await usersCollection.findOne({email})
       const quary = {hr_email: userData?.hr_email}
       const result = await hrUsersCollection.findOne(quary)
-      // console.log(result, "ami result")
       res.send(result)
     })
 
@@ -146,7 +132,6 @@ async function run() {
           },
         ])
         .toArray();
-      // console.log("user", result);
       res.send(result);
     });
 
@@ -155,9 +140,7 @@ async function run() {
       const email = req.params.email;
       const quary = { email };
       const userData = await usersCollection.findOne(quary);
-      // console.log(email, "this is email.klfdjsdj");
       const updateUser = req.body;
-      // console.log(updateUser?.hr_email);
       const hr = { email: updateUser?.hr_email };
       const info = await hrUsersCollection.findOne(hr);
       if (info.employee_limit == info.total_employee) {
@@ -185,7 +168,6 @@ async function run() {
       const quary = { email };
       const updateUser = req.body;
       const userInfo = await usersCollection.findOne(quary);
-      // console.log("console log korcho",userInfo?.hr_email)
       const hr = { email: userInfo?.hr_email };
       const info = await hrUsersCollection.findOne(hr);
       const updateRule = {
@@ -198,7 +180,6 @@ async function run() {
         },
       };
       const hrReault = await hrUsersCollection.updateOne(hr, updateHrlimit);
-      // console.log(hrReault)
       res.send(result);
     });
 
@@ -206,9 +187,7 @@ async function run() {
     app.get("/employee/role/:email", async (req, res) => {
       const email = req.params.email;
       const quary = { email: email };
-      // console.log(email, quary)
       const result = await usersCollection.findOne(quary);
-      // console.log(result)
       res.send({ role: result?.role });
     });
 
@@ -300,7 +279,30 @@ async function run() {
     res.send(result)
   });
   
+  // add user
+  app.patch('/addmultipleemployee', verifyToken, verifyLoginHRUser, async (req, res) => {
+    const { ids, hr_email, role } = req.body;
+    const objectIds = ids.map((id) => new ObjectId(id));
+console.log(objectIds,role, hr_email, "object id")
   
+    try {
+      const result = await usersCollection.updateMany(
+        { _id: { $in: objectIds } },  
+        {
+          $set: { role, hr_email}
+        }
+      );
+      if (result.modifiedCount > 0) {
+        res.status(200).json({ message: `${result.modifiedCount} employees updated successfully.` });
+      } else {
+        res.status(400).json({ message: "No employees were updated." });
+      }
+    } catch (error) {
+      console.error("Error updating employees:", error);
+      res.status(500).json({ message: "Error updating employees", error });
+    }
+  });
+
   app.get("/employeeapproveddata/:email", verifyToken, async(req,res)=>{
     const email = req.params.email
     const quary = {email: email,
@@ -341,7 +343,6 @@ async function run() {
       const search = req.query.search;
       const type = req.query.type;
       const status = req.query.status;
-      // console.log(status, type, search, "serach")
       const quary = {
         email: email,
         ...(search && {
@@ -367,9 +368,7 @@ async function run() {
       const assets_id = dataFind?.asset_id;
       const assets = { _id: new ObjectId(assets_id) };
       const quantityLimit = await assetCollection.findOne(assets);
-      // console.log("data paichi");
       if (quantityLimit?.product_quantity == 0) {
-        // console.log("vai quantity shesh");
         return res.send("error page");
       } else {
         const updateInfo = {
@@ -388,7 +387,6 @@ async function run() {
           assets,
           updateHrlimit
         );
-        // console.log(result);
         res.send(result);
       }
     });
@@ -426,7 +424,6 @@ async function run() {
         assets,
         updateHrlimit
       );
-      // console.log(updateResult, "limit")
       res.send(result);
     });
 
@@ -434,14 +431,12 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await EmployeeAssetCollection.deleteOne(query);
-      // console.log("delete", result);
       res.send(result);
     });
 
     app.post("/asset_request", async (req, res) => {
       const assetRequest = req.body;
       const result = await EmployeeAssetCollection.insertOne(assetRequest);
-      // console.log("this is a r", result)
       res.send(result);
     });
 
@@ -461,8 +456,6 @@ async function run() {
         const email = req.params.email;
         const quary = { hr_email: email, role: "Employee" };
         const result = await usersCollection.find(quary).toArray();
-        // res.send({ role: result?.role });
-        // console.log("this is result", result);
         res.send(result);
       }
     );
@@ -475,7 +468,6 @@ async function run() {
       async (req, res) => {
         const email = req.params.email;
         const result = await hrUsersCollection.findOne({ email });
-        // console.log(result, "tumi hr")
         res.send(result);
       }
     );
@@ -543,9 +535,6 @@ async function run() {
         const type = req.query.type;
         const quantity = req.query.quantity;
         const sort = req.query.sort;
-        // console.log(sort, "data");
-
-        // console.log(quentity, "quentity")
         const quary = {
           hr_email: email,
           ...(search && {
@@ -574,7 +563,6 @@ async function run() {
           .find(quary)
           .sort(sortQuery)
           .toArray();
-        // console.log("Hellow result",result)
         res.send(result);
       }
     );
@@ -587,7 +575,6 @@ async function run() {
         $set: assetData,
       };
       const result = await assetCollection.updateOne(quary, updateData);
-      // console.log(result, "vai tumi ki update hoccho?")
       res.send(result);
     });
 
@@ -600,7 +587,6 @@ async function run() {
         $set: updatePackage,
       };
       const result = await hrUsersCollection.updateOne(quary, updateData);
-      // console.log(result, "hr package");
       res.send(result);
     });
 
@@ -608,14 +594,12 @@ async function run() {
       const id = req.params.id;
       const quary = { _id: new ObjectId(id) };
       const result = await assetCollection.deleteOne(quary);
-      // console.log("Hellow result",result)
       res.send(result);
     });
 
     app.post("/asset", verifyToken, verifyLoginHRUser, async (req, res) => {
       const data = req.body;
       const result = await assetCollection.insertOne(data);
-      // console.log(result)
       res.send(result);
     });
 
@@ -623,13 +607,11 @@ async function run() {
     app.get("/totalPayment/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const result = await hrUsersCollection.findOne({ email });
-      // console.log(result, "this is tk");
       res.send(result);
     });
     app.get("/hrCompany/:email", async (req, res) => {
       const email = req.params.email;
       const result = await hrUsersCollection.findOne({ email });
-      // console.log(result, "this is tk");
       res.send(result);
     });
 
@@ -662,7 +644,6 @@ async function run() {
             request_status: "Rejected",
         };
         const result = await EmployeeAssetCollection.find(query).toArray();
-        // console.log(result, "ami ki tumai")
         res.status(200).send(result);
     } catch (error) {
         console.error("Error fetching approved requests:", error);
@@ -677,10 +658,8 @@ async function run() {
             request_status: "Returned",
         };
         const result = await EmployeeAssetCollection.find(query).toArray();
-        // console.log(result, "ami ki tumai")
         res.status(200).send(result);
     } catch (error) {
-        // console.error("Error fetching approved requests:", error);
         res.status(500).send({ error: "Internal Server Error" });
     }
     })
@@ -848,9 +827,9 @@ app.get(
       res.send(result);
     });
 
-    await client.connect();
-    // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
+    // await client.connect();
+    // // Send a ping to confirm a successful connection
+    // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
