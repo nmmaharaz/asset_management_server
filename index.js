@@ -8,7 +8,16 @@ require("dotenv").config();
 const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 
 app.use(express.json());
-app.use(cors());
+
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://assetmanagement-24357.web.app",
+      "https://assetmanagement-24357.firebaseapp.com",
+    ],
+  })
+);
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.vh6jx.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -88,7 +97,7 @@ async function run() {
     //   res.send(result)
     // })
 
-    app.get("/employeeCompany/:email", async(req, res)=>{
+    app.get("/employeeCompany/:email", verifyToken, async(req, res)=>{
       const email = req.params.email
       const userData = await usersCollection.findOne({email})
       const quary = {hr_email: userData?.hr_email}
@@ -618,7 +627,7 @@ async function run() {
       const result = await hrUsersCollection.findOne({ email });
       res.send(result);
     });
-    app.get("/hrCompany/:email", async (req, res) => {
+    app.get("/hrCompany/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const result = await hrUsersCollection.findOne({ email });
       res.send(result);
@@ -776,7 +785,7 @@ app.get("/rejecteddata/:email", verifyToken, verifyLoginHRUser, async(req,res)=>
   const result = await EmployeeAssetCollection.find(quary).toArray()
   res.send(result)
 })
-app.get("/returndata/:email", verifyToken, verifyLoginHRUser, async(req,res)=>{
+app.get("/returndata/:email", verifyToken, async(req,res)=>{
   const email = req.params.email
   const quary = {hr_email: email,
     request_status: "Returned",
