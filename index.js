@@ -283,7 +283,8 @@ async function run() {
   app.patch('/addmultipleemployee', verifyToken, verifyLoginHRUser, async (req, res) => {
     const { ids, hr_email, role } = req.body;
     const objectIds = ids.map((id) => new ObjectId(id));
-console.log(objectIds,role, hr_email, "object id")
+    const hr = { email: hr_email };
+    console.log(hr_email, "emial")
   
     try {
       const result = await usersCollection.updateMany(
@@ -292,6 +293,12 @@ console.log(objectIds,role, hr_email, "object id")
           $set: { role, hr_email}
         }
       );
+
+      const updateHrlimit = {
+        $inc: { total_employee: ids.length },
+      };
+      const hrReault = await hrUsersCollection.updateOne(hr, updateHrlimit);
+
       if (result.modifiedCount > 0) {
         res.status(200).json({ message: `${result.modifiedCount} employees updated successfully.` });
       } else {
