@@ -13,6 +13,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
+      "http://localhost:5174",
       "https://assetmanagement-24357.web.app",
       "https://assetmanagement-24357.firebaseapp.com",
     ],
@@ -87,20 +88,10 @@ async function run() {
       next();
     };
 
-    // As an Employee
-
-    // app.get("/myteam/:email", async(req,res)=>{
-    //   const email = req.params.email
-    //   const userData = await usersCollection.findOne({email})
-    //   const result = await usersCollection.find({hr_email: userData.hr_email}).toArray()
-    //   console.log("user", result)
-    //   res.send(result)
-    // })
-
     app.get("/employeeCompany/:email", verifyToken, async(req, res)=>{
       const email = req.params.email
       const userData = await usersCollection.findOne({email})
-      const quary = {hr_email: userData?.hr_email}
+      const quary = {email: userData?.hr_email}
       const result = await hrUsersCollection.findOne(quary)
       res.send(result)
     })
